@@ -871,11 +871,11 @@
   "extraction": {
     "schema_version": "1.0.0",
     "pipeline_version": "1.0.0",
-    "extracted_at": "2026-08-16T16:29:18.706405",
+    "extracted_at": "2026-08-16T16:35:35.299807",
     "mode": "rule_only",
     "llm_provider": null,
     "llm_model": null,
-    "duration_seconds": 0.044,
+    "duration_seconds": 0.048,
     "fields_total": 17,
     "fields_populated": 8,
     "coverage_pct": 47.1,

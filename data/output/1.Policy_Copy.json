@@ -879,11 +879,11 @@
   "extraction": {
     "schema_version": "1.0.0",
     "pipeline_version": "1.0.0",
-    "extracted_at": "2026-08-16T16:29:17.642213",
+    "extracted_at": "2026-08-16T16:35:34.161193",
     "mode": "rule_only",
     "llm_provider": null,
     "llm_model": null,
-    "duration_seconds": 0.088,
+    "duration_seconds": 0.097,
     "fields_total": 54,
     "fields_populated": 35,
     "coverage_pct": 64.8,

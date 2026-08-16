@@ -54,10 +54,18 @@ def process_document(document: PolicyDocument, options: PipelineOptions) -> QMSP
     llm_results = {}
     mode = "rule_only"
     if options.llm.enabled:
-        llm_results = extract_with_llm(document, product_type, options.llm)
+        # The LLM stage is best-effort by contract. Provider failures are already swallowed
+        # inside the provider shim, but this guard also covers schema drift or an unexpected
+        # response shape: a document must still produce a rule-only record.
+        try:
+            llm_results = extract_with_llm(document, product_type, options.llm)
+        except Exception as exc:
+            LOGGER.warning("LLM stage failed for %s: %s", document.file_name, exc)
+            llm_results = {}
+            warnings.append(f"LLM extraction failed ({exc}); output is rule-only")
         if llm_results:
             mode = "hybrid"
-        else:
+        elif not any(w.startswith("LLM extraction failed") for w in warnings):
             warnings.append(
                 "LLM extraction was requested but returned nothing usable; "
                 "output is rule-only"

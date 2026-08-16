@@ -122,8 +122,15 @@ def _normalise_number(value: Any) -> Any:
 def _evidence_present(document: PolicyDocument, evidence: Optional[str]) -> bool:
     """Whether a quoted evidence string really occurs in the document.
 
-    Whitespace-insensitive, because a model will normalise the spacing of a quote it copied
-    correctly. Values whose evidence cannot be located are dropped as likely fabrications.
+    Exact (whitespace-normalised) containment is the fast path. The fallback is deliberately
+    *not* a prefix match: an earlier version accepted a quote whose first six words appeared
+    in the document, which let ``"Ambulance charges payable up to a maximum of Rs. 9,99,999
+    per trip"`` pass against a document that says ``Rs. 1,000`` -- precisely the hallucination
+    the guard exists to stop.
+
+    Instead the fallback requires that **every numeric token** in the quote occurs in the
+    document (a fabricated limit always carries a number that is not there) and that the bulk
+    of the remaining tokens do too, which tolerates a model eliding a middle clause.
     """
     if not evidence or len(evidence.strip()) < 6:
         return False
@@ -131,11 +138,16 @@ def _evidence_present(document: PolicyDocument, evidence: Optional[str]) -> bool
     needle = re.sub(r"\s+", " ", evidence).strip().lower()
     if needle in haystack:
         return True
-    # Fall back to a distinctive fragment: models sometimes elide a middle clause.
-    words = needle.split()
-    if len(words) >= 6:
-        return " ".join(words[:6]) in haystack or " ".join(words[-6:]) in haystack
-    return False
+
+    tokens = re.findall(r"[a-z0-9][a-z0-9.,/%()-]*", needle)
+    if len(tokens) < 4:
+        return False
+    numeric = [token for token in tokens if any(char.isdigit() for char in token)]
+    for token in numeric:
+        if token.strip(".,/()-") and token not in haystack:
+            return False
+    present = sum(1 for token in tokens if token in haystack)
+    return present / len(tokens) >= 0.85
 
 
 def _page_of_evidence(document: PolicyDocument, evidence: Optional[str]) -> Optional[int]:

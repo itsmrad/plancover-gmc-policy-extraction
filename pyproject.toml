@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmc-extract"
+version = "1.0.0"
+description = "Extract Group Medical Cover policy data from insurer PDFs and map it to a QMS schema"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "pymupdf==1.26.5",
+    "pdfplumber==0.11.7",
+    "pydantic==2.11.9",
+    "requests==2.32.5",
+    "python-dotenv==1.1.1",
+]
+
+[project.optional-dependencies]
+ocr = ["pytesseract==0.3.13", "pillow==11.3.0"]
+api = ["fastapi==0.116.1", "uvicorn==0.35.0", "python-multipart==0.0.20"]
+dev = ["pytest==8.4.1"]
+
+[project.scripts]
+gmc-extract = "gmc_extract.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["ignore::DeprecationWarning"]
