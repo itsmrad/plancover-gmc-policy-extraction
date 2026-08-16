@@ -283,6 +283,37 @@ def _trim_address_noise(text: str) -> str:
     return text[:match.start()].strip(" ,;-") if match else text
 
 
+def limit_from_text(spec: FieldSpec, text: str
+                    ) -> Tuple[Optional[Union[float, str]], Optional[ValueUnit],
+                               Optional[str], Optional[str]]:
+    """Extract a benefit limit from a clause: ``(value, unit, basis, note)``.
+
+    Shared by the rule extractor's status path and by the LLM layer's evidence-repair path, so
+    a limit is derived identically whether the clause came from the document scan or from a
+    model's verbatim quote. A cost-sharing percentage is reported as a note, never as a limit.
+    """
+    percent = parse_percent(text)
+    money = _pick_money(text, prefer_last=False, require_currency=True)
+    copay_context = bool(_COPAY_CONTEXT.search(text))
+
+    if percent and not copay_context:
+        value, of_si, _raw = percent
+        if not of_si and spec.percent_defaults_to_sum_insured:
+            of_si = True
+        unit = ValueUnit.PERCENT_OF_SUM_INSURED if of_si else ValueUnit.PERCENT
+        return value, unit, parse_basis(text), None
+    if money:
+        return money[0], ValueUnit.INR, parse_basis(text), None
+
+    note = None
+    if percent and copay_context:
+        note = (f"a {percent[0]:g}% co-payment/cost-sharing term applies to this benefit")
+    limit = _textual_limit(text)
+    if limit:
+        return limit, ValueUnit.TEXT, None, note
+    return None, None, None, note
+
+
 def _status_candidate(page_text: str, offset: int, spec: FieldSpec) -> Optional[Candidate]:
     """Resolve a coverage verdict (and any stated limit) from the cue's sentence."""
     sentence = tabular.sentence_at(page_text, offset)
@@ -307,28 +338,12 @@ def _status_candidate(page_text: str, offset: int, spec: FieldSpec) -> Optional[
     candidate = Candidate(status=status, raw_text=sentence, note=None)
 
     if spec.kind is ValueKind.STATUS_WITH_LIMIT:
-        percent = parse_percent(sentence)
-        money = _pick_money(sentence, prefer_last=False, require_currency=True)
-        copay_context = bool(_COPAY_CONTEXT.search(sentence))
-        if percent and not copay_context:
-            value, of_si, _raw = percent
-            candidate.value = value
-            candidate.unit = (ValueUnit.PERCENT_OF_SUM_INSURED if of_si
-                              else ValueUnit.PERCENT)
-            candidate.basis = parse_basis(sentence)
-        elif money:
-            candidate.value = money[0]
-            candidate.unit = ValueUnit.INR
-            candidate.basis = parse_basis(sentence)
-        else:
-            limit = _textual_limit(sentence)
-            if limit:
-                candidate.value = limit
-                candidate.unit = ValueUnit.TEXT
-        if percent and copay_context:
-            # Record it, but do not present a cost-sharing percentage as a benefit limit.
-            candidate.note = (f"a {percent[0]:g}% co-payment/cost-sharing term applies to "
-                              "this benefit")
+        value, unit, basis, note = limit_from_text(spec, sentence)
+        candidate.value = value
+        candidate.unit = unit
+        candidate.basis = basis
+        if note:
+            candidate.note = note
         # A stated limit implies the benefit exists, even without a "covered" verb
         # ("Emergency Ambulance  INR 1000 per hospitalization").
         if candidate.value is not None and candidate.status is FieldStatus.NOT_FOUND:
@@ -394,9 +409,10 @@ def _anchor_regions(page_text: str, rows: List[tabular.Row], spec: FieldSpec
     return regions or [(0, len(page_text), 0.0, -1)]
 
 
-def _has_negative_cue(page_text: str, offset: int, spec: FieldSpec, span: int = 130) -> bool:
+def _has_negative_cue(page_text: str, offset: int, spec: FieldSpec) -> bool:
     if not spec.negative_cues:
         return False
+    span = spec.negative_span
     window = page_text[max(0, offset - span):offset + span].lower()
     return any(cue in window for cue in spec.negative_cues)
 

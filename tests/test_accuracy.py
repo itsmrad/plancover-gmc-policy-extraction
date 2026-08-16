@@ -10,6 +10,7 @@ per-document score, so the number in the README can be regenerated rather than t
 
 from __future__ import annotations
 
+import os
 from datetime import date
 from typing import Any, Dict, List, Tuple
 
@@ -130,7 +131,12 @@ GROUND_TRUTH: Dict[str, Dict[str, Tuple[str, Any]]] = {
         "policy.previous_year_policy_period.expiry_date": A(date(2024, 7, 31)),
         "policy.previous_year_policy_period.first_policy_inception_date": A(date(2023, 8, 1)),
         "policy.previous_year_premium.net_premium": V(83_454),
-        "policy.previous_year_premium.gross_premium": V(104_635),
+        # The schedule states 83,454 net + 15,022 IGST = 98,476 gross. Page 6 is a separate
+        # *premium receipt* for Rs. 1,04,635. I originally recorded the receipt figure here;
+        # the LLM extractor disagreed with the rule extractor, and reviewing the conflict
+        # showed my ground truth was the wrong one. Left documented because catching my
+        # error is exactly what the second extractor is for.
+        "policy.previous_year_premium.gross_premium": V(98_476),
         "structure.sum_insured_tiers": A([500_000.0]),
         "structure.aggregate_sum_insured": V(4_500_000),
         "structure.family_structure.employee": A(True),
@@ -213,7 +219,20 @@ def _check(record, path: str, expectation: Tuple[str, Any]) -> Tuple[bool, Any]:
 
 @pytest.fixture(scope="module")
 def records(documents):
-    options = PipelineOptions(llm=LLMSettings(provider="none"))
+    """Records under test.
+
+    Rule-only by default, so the suite needs no API key and no network. Set
+    ``GMC_TEST_HYBRID=1`` (with a provider configured in ``.env``) to run the same
+    ground-truth table against the hybrid pipeline and prove the LLM layer does not regress
+    any verified field.
+    """
+    if os.getenv("GMC_TEST_HYBRID") == "1":
+        settings = LLMSettings.from_env()
+        if not settings.enabled:
+            pytest.skip("GMC_TEST_HYBRID=1 but no LLM provider is configured")
+    else:
+        settings = LLMSettings(provider="none")
+    options = PipelineOptions(llm=settings)
     return {name: process_document(document, options)
             for name, document in documents.items()}
 
@@ -245,7 +264,8 @@ def test_overall_accuracy_and_report(records, capsys):
         lines.append(f"  {file_name[:52]:54} {hits:3d}/{len(expectations):<3d} "
                      f"{100.0 * hits / len(expectations):5.1f}%")
 
-    report = (f"\nGround-truth accuracy ({len(GROUND_TRUTH)} documents, "
+    mode = "hybrid" if os.getenv("GMC_TEST_HYBRID") == "1" else "rule_only"
+    report = (f"\nGround-truth accuracy [{mode}] ({len(GROUND_TRUTH)} documents, "
               f"{total} verified fields)\n" + "\n".join(lines)
               + f"\n  {'TOTAL':54} {correct:3d}/{total:<3d} "
                 f"{100.0 * correct / total:5.1f}%\n")

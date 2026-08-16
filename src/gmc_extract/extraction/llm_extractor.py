@@ -21,14 +21,76 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..config import LLMSettings
 from ..ingestion import PolicyDocument
 from ..llm import complete_json
 from ..schema import FieldStatus, ProductType, ValueUnit
 from .field_specs import GROUPS, FieldSpec, ValueKind
+from .parsers import StatusMode
+from .parsers import all_percent
 from .retrieval import retrieve, specs_for_prompt
+
+
+def _values_close(left, right) -> bool:
+    if isinstance(left, float) and isinstance(right, float):
+        return abs(left - right) < 0.01
+    return str(left).strip().lower() == str(right).strip().lower()
+
+
+def _percent_from_evidence(evidence, value):
+    """Re-derive a percentage from the model's own verbatim quote.
+
+    gpt-4o-mini returned ``0.5`` for a clause reading "upto 50% of the Sum Insured" -- it
+    converted the percentage to a fraction. The quote is copied verbatim from the document, so
+    when it contains exactly one percentage that figure is authoritative and the model's
+    arithmetic is not. Restricted to the single-percentage case so it cannot pick the wrong
+    number out of a clause that mentions several.
+    """
+    if not evidence or not isinstance(value, float):
+        return None
+    found = all_percent(evidence)
+    if len(found) != 1:
+        return None
+    quoted = found[0][0]
+    if abs(quoted - value) < 0.01:
+        return None
+    return quoted
+
+
+#: Basis qualifiers we are willing to publish. A model asked for a "basis" will happily return
+#: a fragment of the clause ("as per terms and conditions"), which then pollutes the display
+#: string; only recognised qualifiers are kept.
+_VALID_BASES = frozenset({
+    "per day", "per claim", "per hospitalization", "per family", "per person",
+    "per policy period", "per eye", "per week",
+})
+
+
+def _repair_from_evidence(spec: FieldSpec, evidence: Optional[str]):
+    """Parse the model's verbatim quote with the rule layer's own parsers.
+
+    Used when the model supplies a good quote but an unusable value or a missing unit. Since
+    the quote is copied from the document, running the deterministic parser over it recovers
+    exactly what the rule layer would have produced -- which is both more reliable than the
+    model's transcription and consistent with the other extractor by construction.
+    """
+    if not evidence:
+        return None
+    # Imported here to keep the module-level dependency graph one-directional.
+    from .rule_extractor import _parse_value, limit_from_text
+
+    if spec.kind in (ValueKind.STATUS, ValueKind.STATUS_WITH_LIMIT):
+        value, unit, basis, _note = limit_from_text(spec, evidence)
+        if value is None:
+            return None
+        return value, unit, basis
+
+    parsed = _parse_value(evidence, spec, prefer_last=False)
+    if parsed is None or parsed.value is None:
+        return None
+    return parsed.value, parsed.unit, parsed.basis
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,11 +106,24 @@ Do not guess, and do not infer a value from a similar field.
 "evidence": a VERBATIM substring copied exactly from the supplied text that justifies it.
 5. Normalise amounts to whole rupees as a number: "Rs. 5 Lakh" -> 500000, "5,00,000" -> \
 500000, "INR 1000" -> 1000. Never return the digits with commas.
-6. A waiting period that is waived is status "waived_off". A waiting period that applies is \
-status "applied". A benefit that is excluded is status "not_covered".
-7. Distinguish a benefit LIMIT from a CO-PAYMENT. A co-pay percentage is not a benefit limit; \
+6. Distinguish a benefit LIMIT from a CO-PAYMENT. A co-pay percentage is not a benefit limit; \
 mention it in "notes" instead.
-8. Reply with a single JSON object and nothing else."""
+7. Reply with a single JSON object and nothing else.
+
+Choosing "status" - each field below lists the only statuses allowed for it:
+- "covered"       : the benefit IS provided. Use this even when a limit is stated. A benefit \
+with a limit of Rs. 75,000 is "covered" with value 75000, NOT "applied".
+- "not_covered"   : the benefit is excluded, not payable, or outside the scope of the policy.
+- "waived_off"    : a WAITING PERIOD is waived, or the document says the condition does not \
+apply to insured members. "Pre-existing diseases are covered from day one" means the PED \
+waiting period is "waived_off".
+- "applied"       : a WAITING PERIOD or a cost-sharing condition (co-payment, deductible) DOES \
+apply. Never use "applied" for a benefit or for a factual value.
+- "present"       : informational, non-coverage fields - policy number, policyholder name, \
+premium amounts, dates, head counts, family structure, and free-text conditions. Use this \
+whenever the field is a fact rather than a coverage decision.
+- "not_specified" : the field appears but the document gives NA / Nil / blank.
+- "not_found"     : the field does not appear in the supplied text."""
 
 _STATUS_VALUES = {
     "covered", "not_covered", "waived_off", "applied", "present", "not_specified",
@@ -87,6 +162,46 @@ def _field_key(spec: FieldSpec) -> str:
     return spec.path.rsplit(".", 1)[-1]
 
 
+#: Statuses each field kind may legitimately return, and the status to fall back to when a
+#: value was produced but the model chose a word outside that set.
+#:
+#: Constraining the vocabulary *per field* rather than globally is what stopped the model
+#: labelling every extracted figure "applied" -- values such as 86 employees, 30 days and
+#: Rs. 75,000 were all correct, but an unconstrained status turned each one into a spurious
+#: disagreement with the rule extractor.
+_INFORMATIONAL = (FieldStatus.PRESENT, FieldStatus.NOT_SPECIFIED, FieldStatus.NOT_FOUND)
+_BENEFIT = (FieldStatus.COVERED, FieldStatus.NOT_COVERED, FieldStatus.NOT_SPECIFIED,
+            FieldStatus.NOT_FOUND)
+_WAITING = (FieldStatus.WAIVED_OFF, FieldStatus.APPLIED, FieldStatus.NOT_COVERED,
+            FieldStatus.NOT_SPECIFIED, FieldStatus.NOT_FOUND)
+_CONDITION = (FieldStatus.APPLIED, FieldStatus.NOT_SPECIFIED, FieldStatus.NOT_FOUND)
+
+
+def allowed_statuses(spec: FieldSpec) -> Tuple[FieldStatus, ...]:
+    """The statuses that make sense for a given field."""
+    if spec.status_mode is StatusMode.WAITING_PERIOD:
+        return _WAITING
+    if spec.kind in (ValueKind.STATUS, ValueKind.STATUS_WITH_LIMIT,
+                     ValueKind.PERCENT_OR_MONEY):
+        return _BENEFIT
+    if spec.kind is ValueKind.PERCENT:
+        return _CONDITION
+    if spec.kind is ValueKind.DAYS:
+        # Pre/post hospitalisation is a covered benefit expressed as a duration.
+        return _BENEFIT
+    return _INFORMATIONAL
+
+
+def _fallback_status(spec: FieldSpec) -> FieldStatus:
+    """The status to use when a value was extracted but the label was out of vocabulary."""
+    statuses = allowed_statuses(spec)
+    if FieldStatus.COVERED in statuses:
+        return FieldStatus.COVERED
+    if FieldStatus.PRESENT in statuses:
+        return FieldStatus.PRESENT
+    return statuses[0]
+
+
 def _build_prompt(specs: List[FieldSpec], snippets) -> str:
     lines = ["DOCUMENT TEXT (each block tagged with its page):", ""]
     for snippet in snippets:
@@ -96,7 +211,9 @@ def _build_prompt(specs: List[FieldSpec], snippets) -> str:
     lines.append("FIELDS TO EXTRACT (JSON keys):")
     for spec in specs:
         hint = _KIND_HINTS.get(spec.kind, "")
-        lines.append(f'- "{_field_key(spec)}": {spec.label}. Expect {hint}.')
+        permitted = " | ".join(status.value for status in allowed_statuses(spec))
+        lines.append(f'- "{_field_key(spec)}": {spec.label}. Expect {hint}. '
+                     f'Allowed status: {permitted}.')
     lines.append("")
     lines.append(
         'Reply with: {"<field key>": {"status": ..., "value": ..., "unit": ..., '
@@ -185,6 +302,14 @@ def _parse_group_response(document: PolicyDocument, specs: List[FieldSpec],
         unit_text = str(raw.get("unit") or "").strip()
         unit = ValueUnit(unit_text) if unit_text in _UNIT_VALUES else None
 
+        # Normalise integers to float up front. A subtle trap: ``isinstance(0, float)`` is
+        # False, so an integer value silently bypassed the evidence-repair branch below and a
+        # model that answered ``0`` had its answer published verbatim.
+        if isinstance(value, bool):
+            value = None
+        elif isinstance(value, int):
+            value = float(value)
+
         if unit in (ValueUnit.INR, ValueUnit.PERCENT, ValueUnit.PERCENT_OF_SUM_INSURED,
                     ValueUnit.DAYS, ValueUnit.MONTHS, ValueUnit.COUNT):
             value = _normalise_number(value)
@@ -193,15 +318,52 @@ def _parse_group_response(document: PolicyDocument, specs: List[FieldSpec],
         elif isinstance(value, str):
             value = " ".join(value.split()) or None
 
+        notes_extra = None
+        if unit in (ValueUnit.PERCENT, ValueUnit.PERCENT_OF_SUM_INSURED):
+            corrected = _percent_from_evidence(evidence, value)
+            if corrected is not None:
+                notes_extra = (f"percentage corrected to {corrected:g}% from the quoted "
+                               f"evidence (model returned {value})")
+                value = corrected
+        elif unit is None and value is not None:
+            # No usable unit: re-parse the model's own quote deterministically.
+            repaired = _repair_from_evidence(spec, evidence)
+            if repaired is not None:
+                new_value, new_unit, new_basis = repaired
+                if not _values_close(new_value, value):
+                    notes_extra = (f"value re-derived as {new_value!r} by parsing the quoted "
+                                   f"evidence (model returned {value!r} with no unit)")
+                value, unit = new_value, new_unit
+                if new_basis:
+                    raw["basis"] = new_basis
+
         basis = raw.get("basis")
+        if isinstance(basis, str) and basis.strip().lower() not in _VALID_BASES:
+            basis = None
+
+        # Coerce an out-of-vocabulary status onto the field's own vocabulary. A model that
+        # says "applied" for "86 employees" has extracted the right fact and mislabelled it;
+        # dropping the fact would waste it, and keeping the label would manufacture a
+        # disagreement with the rule extractor.
+        permitted = allowed_statuses(spec)
+        if status not in permitted:
+            if value is None:
+                LOGGER.debug("dropping %s: status %s not valid for this field and no value",
+                             spec.path, status.value)
+                continue
+            status = _fallback_status(spec)
+
         notes = raw.get("notes")
+        note_text = notes.strip() if isinstance(notes, str) and notes.strip() else None
+        if notes_extra:
+            note_text = f"{note_text}; {notes_extra}" if note_text else notes_extra
         results[spec.path] = LLMFieldResult(
             status=status,
             value=value,
             unit=unit,
             basis=basis.strip() if isinstance(basis, str) and basis.strip() else None,
             evidence=evidence,
-            notes=notes.strip() if isinstance(notes, str) and notes.strip() else None,
+            notes=note_text,
             page=_page_of_evidence(document, evidence),
         )
     return results

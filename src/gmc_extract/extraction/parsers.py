@@ -142,6 +142,11 @@ def parse_percent(text: str) -> Optional[Tuple[float, bool, str]]:
     return float(match.group(1)), of_si, match.group(0).strip()
 
 
+def all_percent(text: str) -> List[Tuple[float, str]]:
+    """Every percentage in ``text``, in order of appearance."""
+    return [(float(m.group(1)), m.group(0).strip()) for m in _PERCENT.finditer(text)]
+
+
 def parse_basis(text: str) -> Optional[str]:
     """The qualifier attached to a limit: per day / per claim / per family / ..."""
     for pattern, label in _BASIS:

@@ -54,7 +54,26 @@ def _values_agree(left, right) -> bool:
     if isinstance(left, (int, float)) and isinstance(right, (int, float)):
         scale = max(abs(float(left)), abs(float(right)), 1.0)
         return abs(float(left) - float(right)) / scale <= _NUMERIC_TOLERANCE
-    return " ".join(str(left).lower().split()) == " ".join(str(right).lower().split())
+    first = " ".join(str(left).lower().split())
+    second = " ".join(str(right).lower().split())
+    if first == second:
+        return True
+    # For free-text conditions the two extractors legitimately quote different spans of the
+    # same clause -- the rule layer takes the whole sentence, the LLM often the operative
+    # phrase. One containing the other is agreement, not a conflict worth flagging.
+    if len(first) >= 12 and len(second) >= 12:
+        if first in second or second in first:
+            return True
+    # Long enumerations (disease-wise capping schedules) are quoted with small differences:
+    # the rule layer picks up the label glued into the middle of the block by the page
+    # layout. Near-identical token sets are the same answer, so this avoids a review flag
+    # that a human would immediately dismiss.
+    if len(first) >= 200 and len(second) >= 200:
+        tokens_a, tokens_b = set(first.split()), set(second.split())
+        overlap = len(tokens_a & tokens_b) / max(len(tokens_a | tokens_b), 1)
+        if overlap >= 0.9:
+            return True
+    return False
 
 
 _VERDICTS = (FieldStatus.COVERED, FieldStatus.NOT_COVERED, FieldStatus.WAIVED_OFF,
@@ -86,6 +105,27 @@ def _join_notes(*parts: Optional[str]) -> Optional[str]:
     return "; ".join(dict.fromkeys(kept)) or None
 
 
+#: Strategies that mean the rule extractor read a value sitting next to an actual label,
+#: rather than inferring one from a sentence.
+_LABELLED_STRATEGIES = frozenset({
+    "row_right", "column_below", "same_cell_right", "row_left", "same_cell_left",
+})
+
+
+def _is_strong_labelled(rule: Candidate) -> bool:
+    """Whether the rule candidate came from an explicitly labelled schedule field.
+
+    This decides who wins a genuine conflict. Niva Bupa's schedule has a labelled
+    ``Co-payment  NA`` field, while a Special Conditions paragraph elsewhere mentions a 50%
+    co-pay for specific procedures. The LLM reads the paragraph, the rule layer reads the
+    labelled field -- and for a QMS column named "Co-payment", the labelled field is the
+    answer. The paragraph finding is kept as ``alternate`` and the conflict is flagged.
+    """
+    return (rule.score >= _STRONG_RULE_SCORE
+            and not rule.needs_review
+            and rule.strategy in _LABELLED_STRATEGIES)
+
+
 def merge_field(spec: FieldSpec, rule: Optional[Candidate],
                 llm: Optional[LLMFieldResult]) -> QMSField:
     """Combine one field's two candidate answers."""
@@ -112,24 +152,66 @@ def merge_field(spec: FieldSpec, rule: Optional[Candidate],
                 notes=_join_notes(spec.notes, rule.note, llm.notes),
             )
 
-        # Disagreement: prefer the LLM, preserve the rule answer, flag for review.
-        alternate = _render(rule.value, rule.unit, rule.basis, rule.status)
+        # Same verdict, but only one extractor volunteered a limit. That is not a conflict --
+        # take the more informative answer rather than discarding the limit.
+        if status_match and (rule.value is None) != (llm.value is None):
+            richer = rule if rule.value is not None else llm
+            value = richer.value
+            unit = richer.unit
+            basis = richer.basis
+            return QMSField(
+                status=rule.status,
+                value=value,
+                unit=unit,
+                basis=basis,
+                display=_render(value, unit, basis, rule.status),
+                raw_text=(rule.raw_text if richer is rule else llm.evidence),
+                page=(rule.page if richer is rule else llm.page),
+                source=ExtractionSource.RULE_AND_LLM,
+                confidence=Confidence.MEDIUM,
+                needs_review=rule.needs_review,
+                notes=_join_notes(spec.notes, rule.note, llm.notes,
+                                  "both extractors agreed on the status; the limit was "
+                                  "stated by only one of them"),
+            )
+
+        # A genuine conflict.
+        prefer_rule = _is_strong_labelled(rule)
+        if prefer_rule:
+            value, unit, basis = rule.value, rule.unit, rule.basis
+            status = rule.status
+            raw_text, page = rule.raw_text, rule.page
+            alternate = _render(llm.value, llm.unit, llm.basis, llm.status)
+            alternate = f"LLM extractor: {alternate}"
+            reason = ("kept the value from the explicitly labelled schedule field; the LLM "
+                      "read a different figure elsewhere in the document")
+        else:
+            value, unit, basis = llm.value, llm.unit, llm.basis
+            status = llm.status
+            raw_text, page = (llm.evidence or rule.raw_text), (llm.page or rule.page)
+            alternate = _render(rule.value, rule.unit, rule.basis, rule.status)
+            alternate = f"rule extractor: {alternate}"
+            reason = "preferred the LLM value; it handles nested conditions better"
+
         return QMSField(
-            status=llm.status,
-            value=llm.value,
-            unit=llm.unit,
-            basis=llm.basis,
-            display=_render(llm.value, llm.unit, llm.basis, llm.status),
-            raw_text=llm.evidence or rule.raw_text,
-            page=llm.page or rule.page,
+            status=status,
+            value=value,
+            unit=unit,
+            basis=basis,
+            display=_render(value, unit, basis, status),
+            raw_text=raw_text,
+            page=page,
             source=ExtractionSource.RULE_AND_LLM,
             confidence=Confidence.LOW if not status_match else Confidence.MEDIUM,
             needs_review=True,
-            alternate=f"rule extractor: {alternate}",
+            alternate=alternate,
             notes=_join_notes(
                 spec.notes, llm.notes, rule.note,
                 "rule and LLM extractors disagreed"
-                + ("" if status_match else f" on status (rule said '{rule.status.value}')"),
+                + ("" if status_match else
+                   f" on status (rule said '{rule.status.value}', "
+                   f"LLM said '{llm.status.value}')"),
+                reason,
             ),
         )
 

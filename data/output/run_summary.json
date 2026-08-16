@@ -1,11 +1,12 @@
 {
   "documents_processed": 5,
   "fields_total": 196,
-  "fields_populated": 120,
-  "overall_coverage_pct": 61.2,
+  "fields_populated": 121,
+  "overall_coverage_pct": 61.7,
   "confidence_breakdown": {
-    "high": 69,
-    "medium": 51
+    "high": 105,
+    "medium": 14,
+    "low": 2
   },
   "insurers_detected": [
     "Care Health Insurance Ltd.",
@@ -13,7 +14,7 @@
     "Niva Bupa Health Insurance Company Ltd."
   ],
   "modes": [
-    "rule_only"
+    "hybrid"
   ],
   "documents": [
     {
@@ -30,8 +31,9 @@
       "fields_populated": 35,
       "coverage_pct": 64.8,
       "confidence_breakdown": {
-        "high": 18,
-        "medium": 17
+        "high": 31,
+        "medium": 4,
+        "low": 0
       },
       "fields_needing_review": [
         "benefits.buffer_and_waivers.co_payment",
@@ -57,11 +59,12 @@
       "tpa_mode": "in_house_insurer_administered",
       "product_type": "group_medical_cover",
       "fields_total": 54,
-      "fields_populated": 35,
-      "coverage_pct": 64.8,
+      "fields_populated": 36,
+      "coverage_pct": 66.7,
       "confidence_breakdown": {
-        "high": 18,
-        "medium": 17
+        "high": 32,
+        "medium": 4,
+        "low": 0
       },
       "fields_needing_review": [
         "benefits.buffer_and_waivers.co_payment",
@@ -88,8 +91,9 @@
       "fields_populated": 8,
       "coverage_pct": 47.1,
       "confidence_breakdown": {
-        "medium": 5,
-        "high": 3
+        "high": 7,
+        "medium": 1,
+        "low": 0
       },
       "fields_needing_review": [
         "policy.policy_number"
@@ -114,8 +118,9 @@
       "fields_populated": 8,
       "coverage_pct": 47.1,
       "confidence_breakdown": {
-        "medium": 5,
-        "high": 3
+        "high": 7,
+        "medium": 1,
+        "low": 0
       },
       "fields_needing_review": [
         "policy.policy_number"
@@ -140,12 +145,14 @@
       "fields_populated": 34,
       "coverage_pct": 63.0,
       "confidence_breakdown": {
-        "high": 27,
-        "medium": 7
+        "high": 28,
+        "medium": 4,
+        "low": 2
       },
       "fields_needing_review": [
         "benefits.buffer_and_waivers.co_payment",
-        "benefits.room_and_hospitalisation.room_rent_proportionate_deduction"
+        "benefits.room_and_hospitalisation.room_rent_proportionate_deduction",
+        "policy.previous_year_premium.payment_mode"
       ],
       "warnings": [
         "all declared QMS fields are applicable to this product type"
