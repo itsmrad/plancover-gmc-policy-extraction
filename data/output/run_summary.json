@@ -1,0 +1,155 @@
+{
+  "documents_processed": 5,
+  "fields_total": 196,
+  "fields_populated": 120,
+  "overall_coverage_pct": 61.2,
+  "confidence_breakdown": {
+    "high": 69,
+    "medium": 51
+  },
+  "insurers_detected": [
+    "Care Health Insurance Ltd.",
+    "Liberty General Insurance Ltd.",
+    "Niva Bupa Health Insurance Company Ltd."
+  ],
+  "modes": [
+    "rule_only"
+  ],
+  "documents": [
+    {
+      "file_name": "1.Policy Copy.pdf",
+      "pages": 4,
+      "ocr_pages": [],
+      "insurer": "Care Health Insurance Ltd.",
+      "insurer_confidence": "high",
+      "insurer_score": 11.8,
+      "tpa": null,
+      "tpa_mode": "in_house_insurer_administered",
+      "product_type": "group_medical_cover",
+      "fields_total": 54,
+      "fields_populated": 35,
+      "coverage_pct": 64.8,
+      "confidence_breakdown": {
+        "high": 18,
+        "medium": 17
+      },
+      "fields_needing_review": [
+        "benefits.buffer_and_waivers.co_payment",
+        "benefits.maternity.c_section_metro",
+        "benefits.maternity.c_section_non_metro",
+        "benefits.other_benefits.day_care_expenses",
+        "benefits.other_benefits.teleconsultation",
+        "benefits.room_and_hospitalisation.room_rent_proportionate_deduction",
+        "policy.previous_year_premium.payment_mode"
+      ],
+      "warnings": [
+        "all declared QMS fields are applicable to this product type"
+      ]
+    },
+    {
+      "file_name": "GHI Policy.pdf",
+      "pages": 4,
+      "ocr_pages": [],
+      "insurer": "Care Health Insurance Ltd.",
+      "insurer_confidence": "high",
+      "insurer_score": 11.8,
+      "tpa": null,
+      "tpa_mode": "in_house_insurer_administered",
+      "product_type": "group_medical_cover",
+      "fields_total": 54,
+      "fields_populated": 35,
+      "coverage_pct": 64.8,
+      "confidence_breakdown": {
+        "high": 18,
+        "medium": 17
+      },
+      "fields_needing_review": [
+        "benefits.buffer_and_waivers.co_payment",
+        "benefits.maternity.c_section_metro",
+        "benefits.maternity.c_section_non_metro",
+        "benefits.other_benefits.day_care_expenses",
+        "policy.previous_year_premium.payment_mode"
+      ],
+      "warnings": [
+        "all declared QMS fields are applicable to this product type"
+      ]
+    },
+    {
+      "file_name": "Net Catalyst - GPA - Policy Copy - 2022-23.pdf",
+      "pages": 3,
+      "ocr_pages": [],
+      "insurer": "Liberty General Insurance Ltd.",
+      "insurer_confidence": "high",
+      "insurer_score": 11.8,
+      "tpa": null,
+      "tpa_mode": "unknown",
+      "product_type": "group_personal_accident",
+      "fields_total": 17,
+      "fields_populated": 8,
+      "coverage_pct": 47.1,
+      "confidence_breakdown": {
+        "medium": 5,
+        "high": 3
+      },
+      "fields_needing_review": [
+        "policy.policy_number"
+      ],
+      "warnings": [
+        "document classified as group_personal_accident, not group medical cover; 37 medical-benefit fields marked not_applicable rather than extracted",
+        "no TPA identified; group personal accident policies are commonly administered without a third-party administrator",
+        "37 field(s) marked not_applicable and excluded from the coverage denominator"
+      ]
+    },
+    {
+      "file_name": "Policy liberty 2022-2023.pdf",
+      "pages": 3,
+      "ocr_pages": [],
+      "insurer": "Liberty General Insurance Ltd.",
+      "insurer_confidence": "high",
+      "insurer_score": 11.8,
+      "tpa": null,
+      "tpa_mode": "unknown",
+      "product_type": "group_personal_accident",
+      "fields_total": 17,
+      "fields_populated": 8,
+      "coverage_pct": 47.1,
+      "confidence_breakdown": {
+        "medium": 5,
+        "high": 3
+      },
+      "fields_needing_review": [
+        "policy.policy_number"
+      ],
+      "warnings": [
+        "document classified as group_personal_accident, not group medical cover; 37 medical-benefit fields marked not_applicable rather than extracted",
+        "no TPA identified; group personal accident policies are commonly administered without a third-party administrator",
+        "37 field(s) marked not_applicable and excluded from the coverage denominator"
+      ]
+    },
+    {
+      "file_name": "olj4KTUo9B1546-1692687606_925469 - 00 GMC Renewal Policy 00.pdf",
+      "pages": 6,
+      "ocr_pages": [],
+      "insurer": "Niva Bupa Health Insurance Company Ltd.",
+      "insurer_confidence": "high",
+      "insurer_score": 11.8,
+      "tpa": null,
+      "tpa_mode": "in_house_insurer_administered",
+      "product_type": "group_medical_cover",
+      "fields_total": 54,
+      "fields_populated": 34,
+      "coverage_pct": 63.0,
+      "confidence_breakdown": {
+        "high": 27,
+        "medium": 7
+      },
+      "fields_needing_review": [
+        "benefits.buffer_and_waivers.co_payment",
+        "benefits.room_and_hospitalisation.room_rent_proportionate_deduction"
+      ],
+      "warnings": [
+        "all declared QMS fields are applicable to this product type"
+      ]
+    }
+  ]
+}

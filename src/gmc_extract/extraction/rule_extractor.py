@@ -96,11 +96,28 @@ class Candidate:
 # --------------------------------------------------------------------------------------
 # Value parsing per kind
 # --------------------------------------------------------------------------------------
+#: Canonical forms for textual limits, so "covered upto sum insured" and "upto Sum Insured"
+#: land on the same QMS cell value instead of two near-duplicate strings.
+_LIMIT_CANONICAL = {
+    "covered upto sum insured": "up to sum insured",
+    "upto sum insured": "up to sum insured",
+    "up to sum insured": "up to sum insured",
+    "upto si": "up to sum insured",
+    "as per sum insured": "up to sum insured",
+    "sum insured": "up to sum insured",
+    "no capping": "no limit",
+    "no sub-limit": "no limit",
+    "no sublimit": "no limit",
+    "no restriction": "no limit",
+    "actuals": "at actuals",
+}
+
+
 def _textual_limit(text: str) -> Optional[str]:
     lowered = " ".join(text.lower().split())
     for phrase in TEXTUAL_LIMITS:
         if phrase in lowered:
-            return phrase
+            return _LIMIT_CANONICAL.get(phrase, phrase)
     return None
 
 
