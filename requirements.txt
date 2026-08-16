@@ -1,0 +1,14 @@
+# Core extraction stack (required)
+pymupdf==1.26.5          # layout-aware PDF text extraction (page.get_text(sort=True))
+pdfplumber==0.11.7       # table extraction / word geometry
+pydantic==2.11.9         # QMS schema definition + validation + JSON Schema export
+requests==2.32.5         # thin HTTP client for optional LLM providers
+python-dotenv==1.1.1     # load API keys from .env
+
+# Optional extras -- the pipeline degrades gracefully if these are absent.
+# OCR fallback for scanned/image-only pages:
+#   pip install pytesseract==0.3.13 pillow==11.3.0   (also needs the `tesseract` binary)
+# REST endpoint (POST /extract):
+#   pip install "fastapi==0.116.1" "uvicorn==0.35.0" "python-multipart==0.0.20"
+# Tests:
+#   pip install pytest==8.4.1
