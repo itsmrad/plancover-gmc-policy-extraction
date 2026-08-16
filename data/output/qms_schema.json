@@ -1,0 +1,1061 @@
+{
+  "$defs": {
+    "BenefitSchedule": {
+      "properties": {
+        "room_and_hospitalisation": {
+          "$ref": "#/$defs/RoomAndHospitalisation"
+        },
+        "maternity": {
+          "$ref": "#/$defs/Maternity"
+        },
+        "waiting_periods": {
+          "$ref": "#/$defs/WaitingPeriods"
+        },
+        "other_benefits": {
+          "$ref": "#/$defs/OtherBenefits"
+        },
+        "infertility_and_ambulance": {
+          "$ref": "#/$defs/InfertilityAndAmbulance"
+        },
+        "buffer_and_waivers": {
+          "$ref": "#/$defs/BufferAndWaivers"
+        }
+      },
+      "title": "BenefitSchedule",
+      "type": "object"
+    },
+    "BufferAndWaivers": {
+      "properties": {
+        "corporate_buffer": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "corporate_buffer_limit": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "corporate_buffer_per_family": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "disease_wise_capping": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "co_payment": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "BufferAndWaivers",
+      "type": "object"
+    },
+    "Confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Demographics": {
+      "properties": {
+        "employees": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "spouses": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "children": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "parents": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "parents_in_law": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "dependents_total": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "total_lives": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "Demographics",
+      "type": "object"
+    },
+    "DetectionEvidence": {
+      "description": "Why a detector reached its conclusion. Makes detection auditable.",
+      "properties": {
+        "signal": {
+          "title": "Signal",
+          "type": "string"
+        },
+        "matched_text": {
+          "title": "Matched Text",
+          "type": "string"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "weight": {
+          "default": 0.0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "signal",
+        "matched_text"
+      ],
+      "title": "DetectionEvidence",
+      "type": "object"
+    },
+    "DocumentMeta": {
+      "properties": {
+        "file_name": {
+          "title": "File Name",
+          "type": "string"
+        },
+        "file_sha256": {
+          "title": "File Sha256",
+          "type": "string"
+        },
+        "page_count": {
+          "title": "Page Count",
+          "type": "integer"
+        },
+        "ocr_pages": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Ocr Pages",
+          "type": "array"
+        },
+        "characters_extracted": {
+          "default": 0,
+          "title": "Characters Extracted",
+          "type": "integer"
+        },
+        "has_text_layer": {
+          "default": true,
+          "title": "Has Text Layer",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "file_name",
+        "file_sha256",
+        "page_count"
+      ],
+      "title": "DocumentMeta",
+      "type": "object"
+    },
+    "ExtractionMeta": {
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "default": "1.0.0",
+          "title": "Pipeline Version",
+          "type": "string"
+        },
+        "extracted_at": {
+          "format": "date-time",
+          "title": "Extracted At",
+          "type": "string"
+        },
+        "mode": {
+          "default": "rule_only",
+          "title": "Mode",
+          "type": "string"
+        },
+        "llm_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Provider"
+        },
+        "llm_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Model"
+        },
+        "duration_seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Seconds"
+        },
+        "fields_total": {
+          "default": 0,
+          "title": "Fields Total",
+          "type": "integer"
+        },
+        "fields_populated": {
+          "default": 0,
+          "title": "Fields Populated",
+          "type": "integer"
+        },
+        "coverage_pct": {
+          "default": 0.0,
+          "title": "Coverage Pct",
+          "type": "number"
+        },
+        "confidence_breakdown": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Confidence Breakdown",
+          "type": "object"
+        },
+        "fields_needing_review": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields Needing Review",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "title": "ExtractionMeta",
+      "type": "object"
+    },
+    "ExtractionSource": {
+      "enum": [
+        "rule",
+        "llm",
+        "rule+llm",
+        "derived",
+        "none"
+      ],
+      "title": "ExtractionSource",
+      "type": "string"
+    },
+    "FamilyStructure": {
+      "properties": {
+        "raw_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Text"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "employee": {
+          "default": false,
+          "title": "Employee",
+          "type": "boolean"
+        },
+        "spouse": {
+          "default": false,
+          "title": "Spouse",
+          "type": "boolean"
+        },
+        "children": {
+          "default": false,
+          "title": "Children",
+          "type": "boolean"
+        },
+        "parents": {
+          "default": false,
+          "title": "Parents",
+          "type": "boolean"
+        },
+        "parents_in_law": {
+          "default": false,
+          "title": "Parents In Law",
+          "type": "boolean"
+        },
+        "max_children": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Children"
+        },
+        "cover_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cover Type"
+        },
+        "source": {
+          "$ref": "#/$defs/ExtractionSource",
+          "default": "none"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "low"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "FamilyStructure",
+      "type": "object"
+    },
+    "FieldStatus": {
+      "description": "Coverage verdict for a single QMS field.",
+      "enum": [
+        "covered",
+        "not_covered",
+        "waived_off",
+        "applied",
+        "present",
+        "not_specified",
+        "not_found",
+        "not_applicable"
+      ],
+      "title": "FieldStatus",
+      "type": "string"
+    },
+    "InfertilityAndAmbulance": {
+      "properties": {
+        "infertility_treatment": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "surrogacy": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "ambulance_charges": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "air_ambulance_charges": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "InfertilityAndAmbulance",
+      "type": "object"
+    },
+    "InsurerDetection": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "canonical_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Key"
+        },
+        "irdai_registration_no": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Irdai Registration No"
+        },
+        "cin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cin"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "low"
+        },
+        "score": {
+          "default": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/DetectionEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "runner_up": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runner Up"
+        }
+      },
+      "title": "InsurerDetection",
+      "type": "object"
+    },
+    "Maternity": {
+      "properties": {
+        "nine_month_waiting_period": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "baby_day_one_cover": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "vaccination_cover": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "normal_delivery_metro": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "normal_delivery_non_metro": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "c_section_metro": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "c_section_non_metro": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "pre_post_natal_expenses": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "maternity_child_limit": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "Maternity",
+      "type": "object"
+    },
+    "OtherBenefits": {
+      "properties": {
+        "day_care_expenses": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "opd_benefit": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "teleconsultation": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "pharmacy_discount": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "domiciliary_hospitalization": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "annual_health_checkup": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "modern_treatment": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "bariatric_treatment": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "psychiatric_treatment": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "ayush_treatment": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "lgbtq_coverage": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "live_in_partner_coverage": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "organ_donor_expenses": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "OtherBenefits",
+      "type": "object"
+    },
+    "PolicyDetails": {
+      "properties": {
+        "policy_number": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "policyholder_name": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "product_name": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "product_type": {
+          "$ref": "#/$defs/ProductType",
+          "default": "unknown"
+        },
+        "previous_year_policy_period": {
+          "$ref": "#/$defs/PolicyPeriod"
+        },
+        "previous_year_premium": {
+          "$ref": "#/$defs/PremiumDetails"
+        }
+      },
+      "title": "PolicyDetails",
+      "type": "object"
+    },
+    "PolicyPeriod": {
+      "description": "The policy period stated on the document.\n\nAssumption (documented in README): the sample documents are the *expiring* policies\nbeing renewed, so the period printed on them is the \"previous year\" period the QMS\nasks for.",
+      "properties": {
+        "inception_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inception Date"
+        },
+        "expiry_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expiry Date"
+        },
+        "inception_date_raw": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inception Date Raw"
+        },
+        "expiry_date_raw": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expiry Date Raw"
+        },
+        "tenure_display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenure Display"
+        },
+        "tenure_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenure Days"
+        },
+        "tenure_months": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenure Months"
+        },
+        "first_policy_inception_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Policy Inception Date"
+        },
+        "source": {
+          "$ref": "#/$defs/ExtractionSource",
+          "default": "none"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "low"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        }
+      },
+      "title": "PolicyPeriod",
+      "type": "object"
+    },
+    "PolicyStructure": {
+      "properties": {
+        "family_structure": {
+          "$ref": "#/$defs/FamilyStructure"
+        },
+        "sum_insured_tiers": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Sum Insured Tiers",
+          "type": "array"
+        },
+        "sum_insured_basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sum Insured Basis"
+        },
+        "aggregate_sum_insured": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "sum_insured_evidence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sum Insured Evidence"
+        },
+        "sum_insured_page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sum Insured Page"
+        },
+        "sum_insured_source": {
+          "$ref": "#/$defs/ExtractionSource",
+          "default": "none"
+        }
+      },
+      "title": "PolicyStructure",
+      "type": "object"
+    },
+    "PremiumDetails": {
+      "properties": {
+        "net_premium": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "gross_premium": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "tax_amount": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "payment_mode": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "PremiumDetails",
+      "type": "object"
+    },
+    "ProductType": {
+      "description": "Product classification. Drives which benefit groups are applicable.",
+      "enum": [
+        "group_medical_cover",
+        "group_personal_accident",
+        "group_term_life",
+        "group_opd",
+        "unknown"
+      ],
+      "title": "ProductType",
+      "type": "string"
+    },
+    "QMSField": {
+      "description": "One QMS cell, carrying both a machine value and the human evidence behind it.\n\n``value`` + ``unit`` + ``basis`` is what the QMS consumes; ``raw_text`` + ``page`` is\nwhat a human auditor checks. Emitting only one of the two would make the output either\nunverifiable or unusable.",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/FieldStatus",
+          "default": "not_found"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueUnit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Basis"
+        },
+        "display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
+        "raw_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Text"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "source": {
+          "$ref": "#/$defs/ExtractionSource",
+          "default": "none"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "low"
+        },
+        "needs_review": {
+          "default": false,
+          "title": "Needs Review",
+          "type": "boolean"
+        },
+        "alternate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alternate"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "QMSField",
+      "type": "object"
+    },
+    "RoomAndHospitalisation": {
+      "properties": {
+        "room_rent": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "icu_charges": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "pre_hospitalization": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "post_hospitalization": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "room_rent_proportionate_deduction": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "RoomAndHospitalisation",
+      "type": "object"
+    },
+    "TPADetection": {
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "mode": {
+          "$ref": "#/$defs/TPAMode",
+          "default": "unknown"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence",
+          "default": "low"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/DetectionEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "title": "TPADetection",
+      "type": "object"
+    },
+    "TPAMode": {
+      "enum": [
+        "external_tpa",
+        "in_house_insurer_administered",
+        "unknown"
+      ],
+      "title": "TPAMode",
+      "type": "string"
+    },
+    "ValueUnit": {
+      "description": "Unit attached to :attr:`QMSField.value`, so the number is machine-interpretable.",
+      "enum": [
+        "INR",
+        "percent_of_sum_insured",
+        "percent",
+        "days",
+        "months",
+        "years",
+        "count",
+        "text"
+      ],
+      "title": "ValueUnit",
+      "type": "string"
+    },
+    "WaitingPeriods": {
+      "properties": {
+        "thirty_day_waiting_period": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "first_and_second_year_waiting_period": {
+          "$ref": "#/$defs/QMSField"
+        },
+        "pre_existing_diseases": {
+          "$ref": "#/$defs/QMSField"
+        }
+      },
+      "title": "WaitingPeriods",
+      "type": "object"
+    }
+  },
+  "description": "One policy document, mapped into the QMS schema.",
+  "properties": {
+    "document": {
+      "$ref": "#/$defs/DocumentMeta"
+    },
+    "insurer": {
+      "$ref": "#/$defs/InsurerDetection"
+    },
+    "tpa": {
+      "$ref": "#/$defs/TPADetection"
+    },
+    "policy": {
+      "$ref": "#/$defs/PolicyDetails"
+    },
+    "structure": {
+      "$ref": "#/$defs/PolicyStructure"
+    },
+    "demographics": {
+      "$ref": "#/$defs/Demographics"
+    },
+    "benefits": {
+      "$ref": "#/$defs/BenefitSchedule"
+    },
+    "extraction": {
+      "$ref": "#/$defs/ExtractionMeta"
+    }
+  },
+  "required": [
+    "document"
+  ],
+  "title": "QMSPolicyRecord",
+  "type": "object"
+}
