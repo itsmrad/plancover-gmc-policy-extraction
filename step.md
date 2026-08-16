@@ -258,11 +258,11 @@ Updated as I build. Verification for each step is stated so the loop is closeabl
 - [x] **S1** Read brief + CLAUDE.md + all 5 PDFs → verify: field list enumerated, insurers identified.
 - [x] **S2** `git init`, `main` branch, `.gitignore`, feature branch `feat/gmc-policy-extraction`.
 - [x] **S3** Write this `step.md` before coding, per the user's request.
-- [ ] **S4** Pydantic QMS schema → verify: `model_json_schema()` emits without error.
-- [ ] **S5** Ingestion (layout-sorted text, table→markdown, PostScript noise scrub, OCR fallback) → verify: Niva Bupa page 3 shows aligned `label → value`; no `re`/`cm` operator junk in Liberty output.
-- [ ] **S6** Insurer + TPA + product-type detection → verify: 3 insurers correct on 5 files; Liberty classified `GPA`; Care/Niva Bupa report `IN_HOUSE`.
-- [ ] **S7** Parsers (money/percent/days/status polarity) → verify: unit tests over the exact literals found in the samples.
-- [ ] **S8** Field specs + rule extractor → verify: spot-check known values from the PDFs.
+- [x] **S4** Pydantic QMS schema → verify: `model_json_schema()` emits without error.
+- [x] **S5** Ingestion (layout-sorted text, table→markdown, PostScript noise scrub, OCR fallback) → verify: Niva Bupa page 3 shows aligned `label → value`; no `re`/`cm` operator junk in Liberty output.
+- [x] **S6** Insurer + TPA + product-type detection → verify: 3 insurers correct on 5 files; Liberty classified `GPA`; Care/Niva Bupa report `IN_HOUSE`.
+- [x] **S7** Parsers (money/percent/days/status polarity) → verify: unit tests over the exact literals found in the samples.
+- [x] **S8** Field specs + rule extractor → verify: spot-check known values from the PDFs.
 - [ ] **S9** Retrieval + LLM extractor + provider shims → verify: runs and no-ops cleanly with no API key.
 - [ ] **S10** Merge + confidence + writers → verify: JSON/CSV/summary/schema all emitted.
 - [ ] **S11** CLI + optional FastAPI endpoint → verify: `python -m gmc_extract run` end-to-end on `data/input`.
@@ -272,6 +272,26 @@ Updated as I build. Verification for each step is stated so the loop is closeabl
 - [ ] **S15** Commit on feature branch, push, merge to `main`, push.
 
 ---
+
+### 7.1 Bugs found and fixed while building (the honest list)
+
+These are real defects the first implementation had. Each one produced a *plausible-looking
+wrong number* rather than an obvious crash, which is exactly the failure mode the accuracy
+metric punishes. Recording them because the fix reasoning is the interesting part.
+
+| # | Symptom | Root cause | Fix |
+| --- | --- | --- | --- |
+| 1 | `4500000.00` parsed as **450**; `Rs.9600.00` as **960**; `Upto Rs. 1200` as **120** | The money regex tried a comma-grouped branch (`\d{1,3}(,\d{2,3})*`) first, whose `*` let it match just the first three digits of an ungrouped number | Require at least one comma in that branch (`+`), so ungrouped numbers fall through to the plain-digits branch |
+| 2 | Maternity limits reported as **"not specified"** while `Rs. 50,000` sat one cell away | The null check stripped `"."` down to `""`, which matched the null-token set — so a stray full stop outscored the real value | Match null tokens exactly, without punctuation stripping |
+| 3 | Infertility exclusion reported as **not found** in both Care documents | `sentence_at` stopped at the newline, and the PDF wrapped the clause mid-sentence — the words "are outside the scope of this policy" were on the next physical line | Re-join wrapped lines: a line ≥70 chars that does not end in terminal punctuation is a continuation. Short label/value rows are left alone so three consecutive "… Waived Off" rows don't merge |
+| 4 | Day Care reported as **not covered** in both Care documents | The "check the next line too" fallback read an unrelated line, "List of Expenses Generally **Excluded**" | Only consult the following line when it is a bare verdict (≤45 chars) |
+| 5 | Family structure read from a **prose mention** on a later page instead of the actual label | Both hits scored equally on cue and label shape, and the prose one happened to sit closer to its value | Penalise a cue preceded by a word (prose) and reward one preceded only by an enumeration marker ("2. Family Structure") |
+| 6 | Group aggregate sum insured reported as **9,90,16,79,750** | The aggregate took the *largest* amount near its label, and the intermediary's phone number was printed two rows below | Take the *first* plausible amount after the label |
+| 7 | C-Section limit (35,000) reported as a **sum insured tier** | The weak tier cue `"si"` was substring-matched, hitting inside "In**si**ured", "Ba**si**c", "con**si**der" | Word-boundary matching for weak cues |
+| 8 | Per-life premium `25,505.46` reported as a **sum insured tier** | It sits in the same rate table as the real tier and passed the value-range filter | Require tiers to be multiples of 5,000 — per-member sum insured is always a round figure in this market |
+| 9 | Niva Bupa product name read as **"customers are aware of their health policy details."** | The title pattern was only searched on the first two pages; Niva Bupa's schedule is page 3 behind a covering letter | Search the explicit title pattern on all pages; require the fallback heuristic to be predominantly upper case and not end in a full stop |
+| 10 | Niva Bupa Modern Treatment limit reported as **50%** | The 50% is a *co-payment*, not a benefit limit | Detect cost-sharing context and record it in `notes` instead of as the limit |
+| 11 | Liberty dependents count read from prose ("Dependents of Primary members shall be declared…") | Any digit in the neighbourhood satisfied a count field | A count cell must be essentially just a number |
 
 ## 8. Decisions I am consciously NOT making (scope discipline)
 

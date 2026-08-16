@@ -28,6 +28,9 @@ class FieldStatus(str, Enum):
     NOT_COVERED = "not_covered"
     WAIVED_OFF = "waived_off"
     APPLIED = "applied"
+    #: Informational (non-coverage) field that was successfully read -- policy number,
+    #: premium amount, headcount. "covered" would be meaningless for these.
+    PRESENT = "present"
     #: Present in the document but the document itself says the value is NA / nil.
     NOT_SPECIFIED = "not_specified"
     #: The pipeline could not locate the field in this document.
