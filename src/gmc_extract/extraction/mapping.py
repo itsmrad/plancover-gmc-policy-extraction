@@ -352,7 +352,7 @@ def build_record(
     applicable = [(path, field) for path, field in countable
                   if field.status != FieldStatus.NOT_APPLICABLE]
     populated = [field for _path, field in applicable if field.is_populated]
-    breakdown: Dict[str, int] = {}
+    breakdown: Dict[str, int] = {level.value: 0 for level in Confidence}
     for _path, field in applicable:
         if field.is_populated:
             key = field.confidence if isinstance(field.confidence, str) else field.confidence.value

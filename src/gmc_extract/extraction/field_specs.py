@@ -56,6 +56,8 @@ class FieldSpec:
     anchor_cues: Tuple[str, ...] = ()
     #: A window containing any of these is rejected outright.
     negative_cues: Tuple[str, ...] = ()
+    #: How far either side of a hit to look for ``negative_cues``.
+    negative_span: int = 130
     status_mode: StatusMode = StatusMode.BENEFIT
     products: Tuple[ProductType, ...] = GMC_ONLY
     window_before: int = 220
@@ -106,7 +108,17 @@ POLICY_SPECS: List[FieldSpec] = [
         group="policy_meta", kind=ValueKind.MONEY, products=ANY_PRODUCT,
         cues=("total premium", "gross premium", "premium including tax",
               "total premium payable"),
-        negative_cues=("premium per life", "premium rater", "in words"),
+        # A payment *receipt* can state a different amount from the policy schedule. The
+        # Niva Bupa pack shows Rs. 98,476 on the schedule (83,454 net + 18% GST, internally
+        # consistent) and Rs. 1,04,635 on the receipt. The schedule figure is the policy's
+        # gross premium, so receipt pages are excluded.
+        # "(In words)" is deliberately NOT a negative cue: it sits on the line directly
+        # below the figure, so rejecting it would also reject the figure. A words-only value
+        # contains no digits and is discarded by the money parser anyway.
+        negative_cues=("premium per life", "premium rater", "premium receipt",
+                       "receipt of payment", "acknowledge the receipt",
+                       "issuance of this receipt", "temporary receipts"),
+        negative_span=460,
     ),
     FieldSpec(
         path="policy.previous_year_premium.payment_mode", label="Premium Payment Mode",

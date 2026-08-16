@@ -346,6 +346,40 @@ simply **not present in these documents**. Reporting them as `not_found` is the 
 inventing plausible values would raise coverage and destroy accuracy, which is the metric the
 brief weights first. I would rather defend a 63% honest number than a 95% invented one.
 
+### 9.4 Live LLM testing (added after the recruiter supplied an OpenRouter key)
+
+Ran the hybrid path end-to-end against three models. **All three reach 136/136** on the
+ground-truth table, which was the goal: the design must not be tuned to one provider.
+
+| Model | Ground truth | high / medium / low | Coverage |
+| --- | --- | --- | --- |
+| `google/gemini-2.5-flash` (committed) | 136/136 | 105 / 14 / 2 | 61.7% |
+| `deepseek/deepseek-chat` | 136/136 | 95 / 25 / 2 | 62.2% |
+| `openai/gpt-4o-mini` | 136/136 | 93 / 26 / 5 | 63.3% |
+| rule-only (no key) | 136/136 | 69 / 51 / 0 | 61.2% |
+
+**106 of 121 populated fields (87.6%) are now confirmed by both extractors independently.**
+High-confidence fields rose from 69 to 105.
+
+Five defects that only real models could expose:
+
+| # | Symptom | Root cause | Fix |
+| --- | --- | --- | --- |
+| 12 | 21 fields flagged for review on one document, almost all with *identical values* | My prompt defined statuses for waiting periods but never said which status a *benefit with a limit* or an *informational* field should use, so models labelled everything `applied` | Declare the permitted statuses **per field** in the prompt, and coerce an out-of-vocabulary label onto the field's own vocabulary instead of publishing it |
+| 13 | `gpt-4o-mini` returned `0.5` for "upto 50% of the Sum Insured" | The model converted a percentage to a fraction | Re-derive the percentage from the model's own verbatim quote when the quote contains exactly one percentage |
+| 14 | Same field then came back as the whole sentence, and later as `0.0` | Two bugs stacked: `_parse_value` has no branch for `STATUS_WITH_LIMIT` (that lives in the status path), and **`isinstance(0, float)` is `False`**, so an integer value bypassed the repair branch entirely | Extract one shared `limit_from_text` helper used by both paths, and normalise ints to float before the check |
+| 15 | Niva Bupa gross premium disagreed between extractors | **My ground truth was wrong.** The schedule says 83,454 + 15,022 = 98,476; ₹1,04,635 is on a separate *Premium Receipt* page | Corrected the ground truth; taught the rule layer to exclude receipt pages for premium fields |
+| 16 | A labelled `Co-payment  NA` field was overridden by a 50% co-pay mentioned in a prose paragraph | My merge policy said "LLM always wins a conflict" | Refined: a *strong labelled-field* rule hit beats an LLM prose inference; prose-derived rule hits still lose. Conflict flagged either way |
+
+Defect 15 is the one I would highlight in an interview: **the second extractor caught my own
+error**, which is precisely the argument for building two independent extractors instead of
+trusting one.
+
+Two smaller merge refinements fell out of this: when both extractors agree on status but only
+one states a limit, keep the limit rather than flagging a conflict; and treat near-identical long
+enumerations (≥90% token overlap) as agreement, which removed a noisy flag on the disease-wise
+capping block.
+
 ## 10. Honest limitations
 
 Written out in full in the README under "Honest gaps". The short version:

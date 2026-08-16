@@ -12,14 +12,40 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-try:  # python-dotenv is a declared dependency, but never let config import fail.
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except Exception:  # pragma: no cover
-    pass
-
 PROVIDER_NONE = "none"
+
+
+def _load_env_file() -> None:
+    """Load ``.env`` from the working directory or any parent.
+
+    ``dotenv.load_dotenv()`` defaults to ``find_dotenv()``, which introspects the caller's
+    stack frame and raises when there is no script frame (running via ``python -c`` or a
+    piped heredoc). Resolving the path ourselves makes configuration work identically however
+    the code is invoked.
+    """
+    try:
+        from dotenv import load_dotenv
+    except Exception:  # pragma: no cover - dependency is declared but never fatal
+        return
+
+    directory = os.path.abspath(os.getcwd())
+    while True:
+        candidate = os.path.join(directory, ".env")
+        if os.path.isfile(candidate):
+            load_dotenv(candidate)
+            return
+        parent = os.path.dirname(directory)
+        if parent == directory:
+            break
+        directory = parent
+    # Also try alongside the installed package, for a checkout run from elsewhere.
+    fallback = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))), ".env")
+    if os.path.isfile(fallback):
+        load_dotenv(fallback)
+
+
+_load_env_file()
 
 _DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",

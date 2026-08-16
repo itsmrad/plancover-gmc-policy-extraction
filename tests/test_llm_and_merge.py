@@ -208,3 +208,127 @@ def test_llm_returning_nothing_degrades_to_rule_only(documents, monkeypatch):
     record = process_document(document, PipelineOptions(llm=settings))
     assert record.extraction.mode == "rule_only"
     assert record.benefits.infertility_and_ambulance.ambulance_charges.value == 1_000
+
+
+
+# --------------------------------------------------------------------------------------
+# Regressions found by running real models through OpenRouter
+# --------------------------------------------------------------------------------------
+def test_fraction_percentage_is_corrected_from_the_evidence(documents):
+    """gpt-4o-mini returned 0.5 for a clause reading "upto 50% of the Sum Insured"."""
+    document = documents["1.Policy Copy.pdf"]
+    spec = SPECS_BY_PATH["benefits.other_benefits.modern_treatment"]
+    payload = {
+        "modern_treatment": {
+            "status": "covered",
+            "value": 0.5,
+            "unit": "percent_of_sum_insured",
+            "evidence": "Modern treatments, psychiatric treatments and Bariatric Surgery "
+                        "covered under the policy as per terms and conditions upto 50% of "
+                        "the Sum Insured.",
+        }
+    }
+    result = llm_extractor._parse_group_response(document, [spec], payload)[spec.path]
+    assert result.value == 50.0
+    assert "corrected" in (result.notes or "")
+
+
+def test_integer_zero_value_is_repaired_not_published(documents):
+    """Regression: ``isinstance(0, float)`` is False, so integers bypassed evidence repair."""
+    document = documents["1.Policy Copy.pdf"]
+    spec = SPECS_BY_PATH["benefits.other_benefits.modern_treatment"]
+    payload = {
+        "modern_treatment": {
+            "status": "covered",
+            "value": 0,          # int, and wrong
+            "unit": "percentage",  # not a unit we recognise -> None
+            "evidence": "Modern treatments, psychiatric treatments and Bariatric Surgery "
+                        "covered under the policy as per terms and conditions upto 50% of "
+                        "the Sum Insured.",
+        }
+    }
+    result = llm_extractor._parse_group_response(document, [spec], payload)[spec.path]
+    assert result.value == 50.0
+    assert result.unit == ValueUnit.PERCENT_OF_SUM_INSURED
+
+
+def test_out_of_vocabulary_status_is_coerced_when_a_value_exists(documents):
+    """Models label a head count "applied"; the fact is right, the label is not."""
+    document = documents["GHI Policy.pdf"]
+    spec = SPECS_BY_PATH["demographics.employees"]
+    payload = {
+        "employees": {
+            "status": "applied",
+            "value": 86,
+            "unit": "count",
+            "evidence": "Primary Insured Members  86",
+        }
+    }
+    result = llm_extractor._parse_group_response(document, [spec], payload)[spec.path]
+    assert result.status == FieldStatus.PRESENT
+    assert result.value == 86.0
+
+
+def test_out_of_vocabulary_status_without_a_value_is_dropped(documents):
+    document = documents["GHI Policy.pdf"]
+    spec = SPECS_BY_PATH["benefits.buffer_and_waivers.corporate_buffer_per_family"]
+    payload = {
+        "corporate_buffer_per_family": {
+            "status": "applied",
+            "value": None,
+            "evidence": "up to family floater Sum Insured per Insured Family",
+        }
+    }
+    assert llm_extractor._parse_group_response(document, [spec], payload) == {}
+
+
+def test_labelled_schedule_field_beats_an_llm_prose_inference():
+    """Niva Bupa: labelled "Co-payment  NA" vs a 50% co-pay in Special Conditions."""
+    spec = SPECS_BY_PATH["benefits.buffer_and_waivers.co_payment"]
+    rule = Candidate(status=FieldStatus.NOT_SPECIFIED, value=None, raw_text="Co-payment  NA",
+                     page=3, score=6.7, strategy="row_right")
+    llm = LLMFieldResult(status=FieldStatus.APPLIED, value=50.0, unit=ValueUnit.PERCENT,
+                         evidence="50% co-pay For cyberknife treatment", page=3)
+    field = merge_field(spec, rule, llm)
+    assert field.status == FieldStatus.NOT_SPECIFIED
+    assert field.needs_review is True
+    assert field.alternate and "LLM extractor" in field.alternate
+
+
+def test_prose_rule_hit_loses_to_the_llm():
+    """The reverse case: a sentence-derived rule value should not outrank the LLM."""
+    spec = SPECS_BY_PATH["benefits.other_benefits.modern_treatment"]
+    rule = Candidate(status=FieldStatus.COVERED, value=25.0, unit=ValueUnit.PERCENT,
+                     raw_text="...", page=2, score=5.0, strategy="sentence")
+    llm = LLMFieldResult(status=FieldStatus.COVERED, value=50.0, unit=ValueUnit.PERCENT,
+                         evidence="upto 50% of the Sum Insured", page=2)
+    field = merge_field(spec, rule, llm)
+    assert field.value == 50.0
+    assert field.needs_review is True
+
+
+def test_agreed_status_with_one_limit_keeps_the_limit():
+    spec = SPECS_BY_PATH["benefits.maternity.baby_day_one_cover"]
+    rule = Candidate(status=FieldStatus.COVERED, value="up to sum insured",
+                     unit=ValueUnit.TEXT, raw_text="...", page=2, score=6.0,
+                     strategy="sentence")
+    llm = LLMFieldResult(status=FieldStatus.COVERED, value=None, evidence="New Born Baby "
+                         "covered from day one within family floater Sum Insured")
+    field = merge_field(spec, rule, llm)
+    assert field.value == "up to sum insured"
+    assert field.needs_review is False
+
+
+def test_long_enumerations_agree_despite_small_quoting_differences():
+    """The rule layer picks up the label glued into the middle of a wrapped capping block."""
+    spec = SPECS_BY_PATH["benefits.buffer_and_waivers.disease_wise_capping"]
+    clean = ", ".join(f"Procedure{i} including cost of implants- {10000 + i * 1000}"
+                      for i in range(20))
+    with_label = clean.replace("Procedure10", "Disease wise capping Procedure10")
+    rule = Candidate(status=FieldStatus.PRESENT, value=with_label, unit=ValueUnit.TEXT,
+                     raw_text=with_label, page=3, score=6.5, strategy="block")
+    llm = LLMFieldResult(status=FieldStatus.PRESENT, value=clean, unit=ValueUnit.TEXT,
+                         evidence=clean)
+    field = merge_field(spec, rule, llm)
+    assert field.confidence == Confidence.HIGH
+    assert field.needs_review is False
