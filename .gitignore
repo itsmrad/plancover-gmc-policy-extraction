@@ -21,5 +21,8 @@ env/
 .mypy_cache/
 data/.cache/
 
+# Private build log -- kept locally, deliberately not published
+step.md
+
 # OS
 .DS_Store

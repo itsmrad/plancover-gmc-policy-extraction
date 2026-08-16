@@ -439,13 +439,6 @@ Deliberately **not** used: LangChain/LlamaIndex, a vector DB, a fine-tuned model
 
 ---
 
-## Development log
-
-`step.md` records the build in order: what was inspected, every design decision with the options
-rejected and why, and a table of **every accuracy defect found during development** with its root
-cause — including the ones the live model testing exposed. Read it for the reasoning rather than
-the result.
-
 ## License
 
 MIT.
